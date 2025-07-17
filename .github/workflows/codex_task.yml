@@ -1,0 +1,82 @@
+name: IssueOps – run Codex Task
+
+on:
+  issue_comment:
+    types: [created]
+  issues:
+    types: [labeled]
+
+permissions:
+  issues: write
+  contents: read
+  id-token: write
+
+jobs:
+  codex:
+    # ─── trigger: comment with /codex  OR  label codex ───
+    if: >
+      (github.event_name == 'issue_comment' &&
+       contains(github.event.comment.body, '/codex')) ||
+      (github.event_name == 'issues' &&
+       github.event.action == 'labeled' &&
+       github.event.label.name == 'codex')
+    runs-on: ubuntu-latest
+
+    steps:
+      # 1. grab text (issue body for label path, comment body for comment path)
+      - name: Extract task text
+        id: tasktext
+        run: |
+          set -e
+          BODY=$(jq -r 'if .issue then .issue.body else .comment.body end' \
+                 <<< '${{ toJson(github.event) }}')
+          BODY_ESC=$(echo "$BODY" | sed ':a;N;$!ba;s/\n/\\n/g')
+          echo "TEXT=$BODY_ESC" >> $GITHUB_OUTPUT
+
+      # 2. call Codex API
+      - name: Call Codex Task API
+        id: codex
+        env:
+          ACCOUNT_ID:        ${{ secrets.CHATGPT_ACCOUNT_ID }}
+          ENV_ID:            ${{ secrets.ENVIRONMENT_ID }}
+          KNOWN_PARTY_NONCE: ${{ secrets.KNOWN_PARTY_NONCE }}
+          SKIP_WAF:          ${{ secrets.SKIP_WAF }}
+        run: |
+          set -euo pipefail
+          PAYLOAD=$(jq -n \
+            --arg text "${{ steps.tasktext.outputs.TEXT }}" \
+            --arg env  "$ENV_ID" \
+            '{
+              input_items: [
+                {type: "message", role: "user",
+                 content: [{content_type: "text", text: $text}]}
+              ],
+              new_task: {environment_id: $env, branch: "main"}
+            }')
+          RESPONSE=$(curl -sS -X POST \
+            "https://chatgpt.com/backend-api/wham/tasks" \
+            -H "Authorization: Bearer ${{ secrets.TASK_API_TOKEN }}" \
+            -H "Content-Type: application/json" \
+            -H "chatgpt-account-id: $ACCOUNT_ID" \
+            -H "X-OpenAI-Known-Party-Nonce: $KNOWN_PARTY_NONCE" \
+            -H "X-OpenAI-skip-WAF: $SKIP_WAF" \
+            -d "$PAYLOAD")
+          echo "$RESPONSE" | jq .
+          echo "$RESPONSE" | jq '.task'
+          echo "$RESPONSE" | jq '.task.id'
+          task_id=$(echo "$RESPONSE" | jq -r '.task.id')   # ① capture (raw, no quotes)
+          echo task_id
+          echo "task_id=$task_id" >> "$GITHUB_OUTPUT"      # ② write once, no extra quotes
+
+      # 3. post a link back
+      - name: Acknowledge in the issue
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const taskId = '${{ steps.codex.outputs.task_id }}'   // <- matches “id: codex” step
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo:  context.repo.repo,
+              issue_number: context.issue.number,   // always present on issue & comment events
+              body: `🚀 Codex task created: https://chatgpt.com/codex/tasks/${taskId}`
+            })

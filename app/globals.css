@@ -1,0 +1,16 @@
+@import "tailwindcss";
+
+@font-face {
+  font-family: 'OpenAI Sans';
+  src: url('/fonts/OpenAISans-Regular.ttf') format('truetype');
+}
+
+body {
+  font-family: 'OpenAI Sans', sans-serif;
+}
+
+.tag-color {
+  color: #fff;
+  background: linear-gradient(90deg, #a21caf 0%, #f472b6 100%);
+  box-shadow: 0 0 8px 2px #f472b6aa;
+}
