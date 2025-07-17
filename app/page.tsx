@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Trash2 } from "lucide-react";
 import { PlusIcon, ArrowPathIcon, MagnifyingGlassIcon, EnvelopeIcon } from "@heroicons/react/24/solid";
 import { AnimatePresence, motion } from "framer-motion";
+import { downloadCSV } from "@/lib/export";
 
 interface Entry {
   id: number;
@@ -196,6 +197,13 @@ export default function Home() {
               >
                 <ArrowPathIcon className="w-4 h-4" />
                 <span className="sr-only">Reset Entries</span>
+              </Button>
+              <Button
+                onClick={() => downloadCSV(entries)}
+                title="Export all entries to CSV"
+                className="bg-gray-100 text-gray-500 hover:bg-gray-200 focus:ring-2 focus:ring-gray-300"
+              >
+                Export CSV
               </Button>
             </div>
           </div>
