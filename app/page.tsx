@@ -6,7 +6,7 @@ import "./globals.css";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Trash2 } from "lucide-react";
-import { PlusIcon, ArrowPathIcon, MagnifyingGlassIcon, EnvelopeIcon } from "@heroicons/react/24/solid";
+import { PlusIcon, ArrowPathIcon, MagnifyingGlassIcon, EnvelopeIcon, ArrowDownTrayIcon } from "@heroicons/react/24/solid";
 import { AnimatePresence, motion } from "framer-motion";
 
 interface Entry {
@@ -166,6 +166,34 @@ export default function Home() {
     localStorage.setItem("crm-entries", JSON.stringify(DEFAULT_ENTRIES));
   };
 
+  const exportCsv = () => {
+    const headers = ["Name", "Email", "Notes", "Tags", "Next Steps", "Summary"];
+    const rows = entries.map((e) => [
+      e.name,
+      e.email,
+      e.notes,
+      e.tags ?? "",
+      e.next_steps ?? "",
+      e.summary ?? "",
+    ]);
+    const csv = [headers, ...rows]
+      .map((row) =>
+        row
+          .map((field) => `"${String(field).replace(/"/g, '""')}"`)
+          .join(",")
+      )
+      .join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "customers.csv";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <div className="min-h-screen flex flex-col items-center bg-gray-50 text-gray-900">
       <div className="w-full max-w-6xl rounded-xl bg-white shadow-lg ring-1 ring-gray-100 flex flex-col justify-center mt-8">
@@ -196,6 +224,13 @@ export default function Home() {
               >
                 <ArrowPathIcon className="w-4 h-4" />
                 <span className="sr-only">Reset Entries</span>
+              </Button>
+              <Button
+                onClick={exportCsv}
+                className="bg-blue-100 text-blue-700 hover:bg-blue-200 focus:ring-2 focus:ring-blue-300"
+              >
+                <ArrowDownTrayIcon className="w-4 h-4" />
+                <span>Export CSV</span>
               </Button>
             </div>
           </div>
